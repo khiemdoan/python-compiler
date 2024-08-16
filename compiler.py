@@ -1,57 +1,51 @@
+__author__ = 'Khiem Doan'
+__github__ = 'https://github.com/khiemdoan'
+__email__ = 'doankhiem.crazy@gmail.com'
 
+from argparse import ArgumentParser
 from pathlib import Path
-import os
-import py_compile
+from py_compile import compile
+from shutil import copyfile
 
 
-def compile_file(source_file: Path, delete=False) -> bool:
-    target_file = str(source_file) + 'c'
+def compile_file(src_file: Path, dest_file: Path) -> None:
+    dest_file.parent.mkdir(parents=True, exist_ok=True)
     try:
-        ok = py_compile.compile(source_file, target_file)
-        if delete:
-            source_file.unlink()
-    except py_compile.PyCompileError as err:
-        print(f'*** Error compiling {source_file}...')
-        # escape non-printable characters in msg
-        encoding = sys.stdout.encoding or sys.getdefaultencoding()
-        msg = err.msg.encode(encoding, errors='backslashreplace').decode(encoding)
-        print(msg)
-        return False
-    except (SyntaxError, UnicodeError, OSError) as e:
-        print(f'*** Error compiling {source_file}...')
-        print(e.__class__.__name__ + ':', e)
-        return False
-    else:
-        return ok != 0
+        if src_file.suffix.lower() == '.py':
+            print(f'{src_file} -> {dest_file}c')
+            compile(src_file, f'{dest_file}c')
+        else:
+            print(f'{src_file} -> {dest_file}')
+            copyfile(src_file, dest_file)
+    except Exception:
+        return
 
 
-
-def main():
-    import argparse
+def main() -> None:
     """Script main program."""
 
-    parser = argparse.ArgumentParser(description='Utilities to compile *.py to *.pyc.')
-    parser.add_argument('-d', '--delete', action='store_true', dest='delete', default=False, help='delete source files')
-    parser.add_argument('compile_dests', metavar='FILE|DIR', nargs='*', help='file or directory names to compile')
+    parser = ArgumentParser(description='Utilities to compile *.py to *.pyc.')
+    parser.add_argument('src', type=str, help='source file or directory to compile')
+    parser.add_argument('dest', type=str, help='destination file or directory')
 
     args = parser.parse_args()
 
-    source_files = []
+    print(args)
 
-    for dest in args.compile_dests:
-        dest = Path(dest)
-        if dest.is_file():
-            source_files.append(dest)
-        if dest.is_dir():
-            source_files += list(dest.glob('**/*.py'))
+    src_path = Path(args.src)
+    dest_path = Path(args.dest)
 
-    for file in source_files:
-        compile_file(file, delete=args.delete)
+    if src_path.is_file():
+        dest_path = Path(args.dest)
+        compile_file(src_path, dest_path)
 
-    return True
+    if src_path.is_dir():
+        dest_path.mkdir(parents=True, exist_ok=True)
+        for src_file_path in src_path.glob('**/*'):
+            relative = src_file_path.relative_to(src_path)
+            dest_file_path = dest_path / relative
+            compile_file(src_file_path, dest_file_path)
 
 
 if __name__ == '__main__':
-    import sys
-    exit_status = int(not main())
-    sys.exit(exit_status)
+    main()
